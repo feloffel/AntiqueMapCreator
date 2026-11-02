@@ -29,7 +29,7 @@ It's a static site — no build step. Open it through a tiny local web server
 (recommended, so the browser allows all network requests cleanly):
 
 ```bash
-cd "/Users/mariusmika/Documents/Persönlich/OSM-MapPNG-Creator"
+cd "/path/to/folder/"
 python3 -m http.server 8000
 ```
 

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Antique Map Maker — OSM</title>
+
+  <!-- MapLibre GL -->
+  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <!-- OSM relation -> GeoJSON (for admin region polygons) -->
+  <script src="https://unpkg.com/osmtogeojson@3.0.0-beta.5/osmtogeojson.js"></script>
+
+  <!-- Period typefaces for the antique look -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&family=EB+Garamond:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <aside id="panel">
+    <header class="panel-head">
+      <h1>Antique Map Maker</h1>
+      <p class="sub">Vintage city &amp; region maps from OpenStreetMap</p>
+    </header>
+
+    <!-- Location -->
+    <section class="group">
+      <label class="group-title">Location</label>
+      <div class="row">
+        <input id="search" type="text" placeholder="Search a city, region…" autocomplete="off" />
+        <button id="searchBtn" class="btn">Go</button>
+      </div>
+      <div id="searchResults" class="results hidden"></div>
+    </section>
+
+    <!-- Style -->
+    <section class="group">
+      <label class="group-title">Palette</label>
+      <div id="palettes" class="palettes"></div>
+    </section>
+
+    <!-- Layers -->
+    <section class="group">
+      <label class="group-title">Layers</label>
+      <div class="toggles">
+        <label class="tg"><input type="checkbox" id="t_regions" checked> Region fills (land use)</label>
+        <label class="tg"><input type="checkbox" id="t_water" checked> Water &amp; rivers</label>
+        <label class="tg"><input type="checkbox" id="t_boundaries" checked> Admin boundaries</label>
+        <label class="tg"><input type="checkbox" id="t_roads" checked> Roads (subtle)</label>
+        <label class="tg"><input type="checkbox" id="t_labels" checked> Place names</label>
+        <label class="tg"><input type="checkbox" id="t_texture" checked> Paper texture</label>
+        <label class="tg"><input type="checkbox" id="t_vignette" checked> Vignette</label>
+        <label class="tg"><input type="checkbox" id="t_frame" checked> Border frame</label>
+      </div>
+      <div class="row city-size">
+        <label class="tg small" for="cityEmphasis" style="flex:0 0 auto;margin-right:2px">Main city name</label>
+        <select id="cityEmphasis" class="select">
+          <option value="off">Uniform</option>
+          <option value="large" selected>Large</option>
+          <option value="huge">Huge</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- Colored districts via Overpass -->
+    <section class="group">
+      <label class="group-title">Coloured districts / regions</label>
+      <p class="hint">Fetch real administrative areas in view and tint each one a different colour (the “kingdoms” look). Admin-level numbers vary by country — <b>Auto</b> fetches the finest areas that cover the view. In Germany, city districts are usually level 10.</p>
+      <div class="row">
+        <select id="adminLevel" class="select">
+          <option value="auto" selected>Auto — finest areas in view (recommended)</option>
+          <option value="4">Level 4 — states / Länder</option>
+          <option value="6">Level 6 — districts / Landkreise / cities</option>
+          <option value="7">Level 7 — associations (Ämter / VG)</option>
+          <option value="8">Level 8 — municipalities / Gemeinden</option>
+          <option value="9">Level 9 — boroughs (some cities)</option>
+          <option value="10">Level 10 — city districts / Stadtteile</option>
+        </select>
+      </div>
+      <div class="row">
+        <button id="loadRegions" class="btn btn-primary">Load &amp; colour regions</button>
+        <button id="clearRegions" class="btn">Clear</button>
+      </div>
+      <div class="row">
+        <label class="tg"><input type="checkbox" id="regionLabels"> Label these regions</label>
+      </div>
+      <div id="regionStatus" class="status"></div>
+    </section>
+
+    <!-- Title -->
+    <section class="group">
+      <label class="group-title">Title (optional)</label>
+      <input id="title" type="text" placeholder="e.g. ROYAUME DE…" />
+      <div class="row">
+        <label class="tg small"><input type="checkbox" id="titleShow"> Show on map</label>
+        <select id="titlePos" class="select">
+          <option value="top">Top</option>
+          <option value="bottom">Bottom</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- Export -->
+    <section class="group">
+      <label class="group-title">Export PNG</label>
+      <div class="row">
+        <select id="exportSize" class="select">
+          <option value="2000">Good — 2000 px</option>
+          <option value="4000" selected>High — 4000 px</option>
+          <option value="6000">Very high — 6000 px</option>
+          <option value="8000">Max — 8000 px</option>
+        </select>
+      </div>
+      <button id="exportBtn" class="btn btn-primary full">⬇ Export high-res PNG</button>
+      <div id="exportStatus" class="status"></div>
+    </section>
+
+    <footer class="panel-foot">
+      <span>Tiles © <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a></span>
+      <span>Data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors</span>
+    </footer>
+  </aside>
+
+  <main id="stage">
+    <div id="map"></div>
+    <!-- decorative preview overlays (kept visually in sync with the export) -->
+    <div id="paperTexture" class="overlay"></div>
+    <div id="vignette" class="overlay"></div>
+    <canvas id="labelCanvas" class="overlay"></canvas>
+    <div id="frame" class="overlay"></div>
+    <div id="titleEl" class="map-title hidden"></div>
+    <div id="busy" class="busy hidden"><div class="spinner"></div><span id="busyText">Working…</span></div>
+  </main>
+
+  <!-- app modules (classic scripts, order matters) -->
+  <script src="js/palettes.js"></script>
+  <script src="js/texture.js"></script>
+  <script src="js/style.js"></script>
+  <script src="js/labels.js"></script>
+  <script src="js/regions.js"></script>
+  <script src="js/exporter.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
